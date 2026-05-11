@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+@theme {
+  --font-outfit: "Outfit", sans-serif;
+  --font-sarabun: "Sarabun", sans-serif;
+  
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  
+  --radius-card: 24px;
+}
+
+@layer base {
+  :root {
+    --bg-main: #f8fafc;
+    --sidebar-width: 280px;
+    --header-height: 70px;
+  }
+
+  body {
+    @apply font-outfit bg-slate-50 text-slate-900 antialiased overflow-x-hidden;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-[24px] p-8 border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:shadow-[0_20px_50px_rgb(0,0,0,0.08)] hover:-translate-y-1.5;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 tracking-tight;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-600/25 border-b-4 border-blue-800 hover:border-blue-800 hover:translate-y-[1px] active:border-b-0 active:translate-y-[4px];
+  }
+
+  .btn-outline {
+    @apply border-2 border-slate-100 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200;
+  }
+
+  .main-content {
+    @apply flex-1 p-10 ml-[280px] transition-all duration-500 ease-in-out min-h-screen;
+  }
+
+  @media (max-width: 1024px) {
+    .main-content {
+      @apply ml-0 pt-[94px] p-6;
+    }
+  }
+
+  /* Status Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest;
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 rounded-full hover:bg-slate-600;
+}
+
+/* Glassmorphism */
+.glass-card {
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-2xl;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Table Enhancements */
+table {
+  @apply w-full border-separate border-spacing-y-3;
+}
+
+tr.table-row {
+  @apply bg-white transition-all duration-300;
+}
+
+tr.table-row td {
+  @apply py-5 border-y border-slate-50 first:border-l first:rounded-l-3xl last:border-r last:rounded-r-3xl px-6;
+}
+
+tr.table-row:hover td {
+  @apply bg-slate-50/50 border-slate-100;
+}
