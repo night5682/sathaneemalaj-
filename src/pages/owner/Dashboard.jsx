@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { 
-  TrendingUp, 
-  Calendar, 
-  BarChart3, 
-  PackageSearch 
+import {
+  TrendingUp,
+  Calendar,
+  BarChart3,
+  PackageSearch
 } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
@@ -19,7 +19,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const result = await get('/dashboard.php');
+        const result = await get('/dashboard');
         setData(result);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -33,23 +33,23 @@ const Dashboard = () => {
   if (!data) return null;
 
   const stats = [
-    { 
-      label: 'ยอดขายวันนี้', 
-      value: data.today_sales, 
-      icon: <Calendar className="text-blue-600" />, 
-      color: 'bg-blue-50' 
+    {
+      label: 'ยอดขายวันนี้',
+      value: data.today_sales,
+      icon: <Calendar className="text-blue-600" />,
+      color: 'bg-blue-50'
     },
-    { 
-      label: 'ยอดขายเดือนนี้', 
-      value: data.month_sales, 
-      icon: <TrendingUp className="text-indigo-600" />, 
-      color: 'bg-indigo-50' 
+    {
+      label: 'ยอดขายเดือนนี้',
+      value: data.month_sales,
+      icon: <TrendingUp className="text-indigo-600" />,
+      color: 'bg-indigo-50'
     },
-    { 
-      label: 'ยอดขายปีนี้', 
-      value: data.year_sales, 
-      icon: <BarChart3 className="text-violet-600" />, 
-      color: 'bg-violet-50' 
+    {
+      label: 'ยอดขายปีนี้',
+      value: data.year_sales,
+      icon: <BarChart3 className="text-violet-600" />,
+      color: 'bg-violet-50'
     },
   ];
 
@@ -107,8 +107,8 @@ const Dashboard = () => {
           </div>
           <div className="h-[400px] flex items-center justify-center p-4">
             {data.stock_chart.length > 0 ? (
-              <Pie 
-                data={chartData} 
+              <Pie
+                data={chartData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
@@ -122,7 +122,7 @@ const Dashboard = () => {
                       }
                     }
                   }
-                }} 
+                }}
               />
             ) : (
               <p className="text-slate-400 font-medium">ไม่มีข้อมูลสต็อก</p>

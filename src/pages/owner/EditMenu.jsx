@@ -3,10 +3,10 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Toast from '../../components/ui/Toast';
-import { 
-  ArrowLeft, 
-  Upload, 
-  Save, 
+import {
+  ArrowLeft,
+  Upload,
+  Save,
   Image as ImageIcon,
   ChevronRight,
   Loader2
@@ -15,11 +15,11 @@ import {
 const EditMenu = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { get, postMultipart, loading } = useApi();
+  const { get, putMultipart, loading } = useApi();
   const [fetching, setFetching] = useState(true);
   const [toast, setToast] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  
+
   const categories = ['เครื่องดื่ม', 'เมนูทอด', 'เมนูต้ม', 'เมนูยำ', 'เมนูทานเล่น', 'อาหารจานเดียว', 'หม่าล่า'];
 
   const [formData, setFormData] = useState({
@@ -31,10 +31,32 @@ const EditMenu = () => {
     menu_image: null
   });
 
+  const DEFAULT_IMAGE = "/assets/img/menus/default.jpg";
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return DEFAULT_IMAGE;
+
+    if (imagePath.startsWith("http://localhost:42091")) {
+      return imagePath.replace("http://localhost:42091", "");
+    }
+
+    if (imagePath.startsWith("http")) {
+      return imagePath;
+    }
+
+    if (imagePath.startsWith("dist/")) {
+      return `/${imagePath.replace("dist/", "")}`;
+    }
+
+    return imagePath.startsWith("/")
+      ? imagePath
+      : `/assets/img/menus/${imagePath}`;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const menus = await get('/menus.php');
+        const menus = await get('/menus');
         const menu = menus.find(m => m.id === parseInt(id));
         if (menu) {
           setFormData({
@@ -45,7 +67,7 @@ const EditMenu = () => {
             low_stock_threshold: menu.low_stock_threshold,
             menu_image: null
           });
-          setImagePreview(`/assets/img/menus/${menu.image_path}`);
+          setImagePreview(getImageUrl(menu.image_path));
         }
       } catch (err) { console.error(err); }
       finally { setFetching(false); }
@@ -68,18 +90,36 @@ const EditMenu = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const data = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (key === 'menu_image' && !formData[key]) return; // Skip if no new image
+
+    Object.keys(formData).forEach((key) => {
+      if (key === "menu_image" && !formData[key]) return;
       data.append(key, formData[key]);
     });
 
     try {
-      await postMultipart(`/menus.php?id=${id}`, data);
-      setToast({ message: 'บันทึกการแก้ไขเรียบร้อยแล้ว', type: 'success' });
-      setTimeout(() => navigate('/manage-menus'), 1500);
+      const updatedMenu = await putMultipart(`/menus/${id}`, data);
+
+      setToast({
+        message: "บันทึกการแก้ไขเรียบร้อยแล้ว",
+        type: "success",
+      });
+
+      setTimeout(() => {
+        navigate("/manage-menus", {
+          state: {
+            updatedMenu,
+            action: "updated",
+          },
+        });
+      }, 800);
     } catch (err) {
-      setToast({ message: 'เกิดข้อผิดพลาดในการบันทึก', type: 'error' });
+      console.error("UPDATE MENU ERROR:", err);
+      setToast({
+        message: "เกิดข้อผิดพลาดในการบันทึก",
+        type: "error",
+      });
     }
   };
 
@@ -88,16 +128,16 @@ const EditMenu = () => {
   return (
     <div className="animate-slide-up max-w-4xl mx-auto space-y-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
 
       <header className="flex items-center gap-4">
-        <Link 
-          to="/manage-menus" 
+        <Link
+          to="/manage-menus"
           className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
         >
           <ArrowLeft size={24} />
@@ -117,11 +157,14 @@ const EditMenu = () => {
           <div className="card p-4 flex flex-col items-center">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 w-full text-center">รูปภาพเมนู</h3>
             <div className="relative w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200 group">
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
+              <img
+                src={imagePreview}
+                alt="Preview"
                 className="w-full h-full object-cover animate-fade"
-                onError={(e) => e.target.src = '/assets/img/default.jpg'}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = DEFAULT_IMAGE;
+                }}
               />
               <label className="absolute inset-0 cursor-pointer bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold gap-2">
                 <Upload size={20} /> เปลี่ยนรูป
@@ -139,14 +182,14 @@ const EditMenu = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">ชื่อเมนู</label>
-                <input 
+                <input
                   type="text" name="name" required value={formData.name} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">ราคา (บาท)</label>
-                <input 
+                <input
                   type="number" name="price" required value={formData.price} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
@@ -155,7 +198,7 @@ const EditMenu = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">หมวดหมู่</label>
-              <select 
+              <select
                 name="main_category" value={formData.main_category} onChange={handleChange}
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium appearance-none"
               >
@@ -168,14 +211,14 @@ const EditMenu = () => {
             <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">จำนวนในคลัง</label>
-                <input 
+                <input
                   type="number" name="stock_quantity" value={formData.stock_quantity} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">แจ้งเตือนใกล้หมด</label>
-                <input 
+                <input
                   type="number" name="low_stock_threshold" value={formData.low_stock_threshold} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
@@ -184,7 +227,7 @@ const EditMenu = () => {
 
             <div className="pt-6 flex justify-end gap-4">
               <Link to="/manage-menus" className="btn btn-outline h-12 px-8">ยกเลิก</Link>
-              <button 
+              <button
                 type="submit" disabled={loading}
                 className="btn btn-primary h-12 px-10 shadow-lg shadow-blue-600/20"
               >

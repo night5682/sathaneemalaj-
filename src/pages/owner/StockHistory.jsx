@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { 
-  History, 
+import {
+  History,
   ArrowLeft,
   ArrowUpCircle,
   ArrowDownCircle,
@@ -20,7 +20,7 @@ const StockHistory = () => {
 
   const fetchLogs = async () => {
     try {
-      const data = await get('/stock_history.php');
+      const data = await get('/stock_history');
       setLogs(data);
     } catch (err) { console.error(err); }
   };
@@ -29,7 +29,7 @@ const StockHistory = () => {
     fetchLogs();
   }, [get]);
 
-  const filteredLogs = logs.filter(log => 
+  const filteredLogs = logs.filter(log =>
     log.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (log.note && log.note.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -39,7 +39,7 @@ const StockHistory = () => {
     <div className="animate-slide-up space-y-8 max-w-7xl mx-auto p-4 lg:p-8">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/stock-beverage')}
             className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shadow-sm"
           >
@@ -50,11 +50,11 @@ const StockHistory = () => {
             <p className="text-slate-500 mt-1 font-medium">แสดงรายการนำเข้าและส่งออกสินค้าทั้งหมด</p>
           </div>
         </div>
-        
+
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="ค้นหาชื่อเมนู, ผู้ปรับ หรือเหตุผล..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -127,7 +127,7 @@ const StockHistory = () => {
               </tbody>
             </table>
           </div>
-          
+
           {filteredLogs.length === 0 && (
             <div className="py-24 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">

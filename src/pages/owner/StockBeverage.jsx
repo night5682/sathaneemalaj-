@@ -3,15 +3,37 @@ import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Modal from '../../components/ui/Modal';
 import Toast from '../../components/ui/Toast';
-import { 
-  Beer, 
-  RefreshCw, 
-  PlusCircle, 
-  MinusCircle, 
+import {
+  Beer,
+  RefreshCw,
+  PlusCircle,
+  MinusCircle,
   AlertTriangle,
   History,
   TrendingUp
 } from 'lucide-react';
+
+const DEFAULT_IMAGE = "/assets/img/menus/default.jpg";
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return DEFAULT_IMAGE;
+
+  if (imagePath.startsWith("http://localhost:42091")) {
+    return imagePath.replace("http://localhost:42091", "");
+  }
+
+  if (imagePath.startsWith("http")) {
+    return imagePath;
+  }
+
+  if (imagePath.startsWith("dist/")) {
+    return `/${imagePath.replace("dist/", "")}`;
+  }
+
+  return imagePath.startsWith("/")
+    ? imagePath
+    : `/assets/img/menus/${imagePath}`;
+};
 
 const StockBeverage = () => {
   const { get, put, loading } = useApi();
@@ -23,7 +45,7 @@ const StockBeverage = () => {
 
   const fetchDrinks = async () => {
     try {
-      const data = await get('/stock.php');
+      const data = await get('/stock');
       setDrinks(data);
     } catch (err) { console.error(err); }
   };
@@ -42,7 +64,7 @@ const StockBeverage = () => {
     if (!selectedDrink || newStock === '') return;
     const user = JSON.parse(localStorage.getItem('user'));
     try {
-      await put(`/stock.php?id=${selectedDrink.id}`, { 
+      await put(`/stock?id=${selectedDrink.id}`, {
         stock_quantity: parseInt(newStock),
         user_id: user?.id || 0,
         note: 'Manual adjustment via Management UI'
@@ -60,10 +82,10 @@ const StockBeverage = () => {
   return (
     <div className="animate-slide-up space-y-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
 
@@ -73,13 +95,13 @@ const StockBeverage = () => {
           <p className="text-slate-500 mt-2 font-medium">จัดการจำนวนคงเหลือและสถานะของเครื่องดื่มทั้งหมด</p>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={() => window.location.href='/stock-history'}
+          <button
+            onClick={() => window.location.href = '/stock-history'}
             className="btn btn-primary h-12 px-6 gap-2"
           >
             <History size={20} /> ประวัติสต็อก
           </button>
-          <button 
+          <button
             onClick={fetchDrinks}
             className="btn btn-outline h-12 px-6 gap-2 bg-white"
           >
@@ -145,11 +167,14 @@ const StockBeverage = () => {
                     <tr key={drink.id} className={`hover:bg-slate-50/50 transition-colors ${isOut ? 'opacity-60 bg-slate-50/30' : ''}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
-                          <img 
-                            src={`/assets/img/menus/${drink.image_path}`} 
-                            alt={drink.name} 
+                          <img
+                            src={getImageUrl(drink.image_path)}
+                            alt={drink.name}
                             className="w-14 h-14 rounded-xl object-cover bg-slate-100 border border-slate-200"
-                            onError={(e) => e.target.src = '/assets/img/default.jpg'}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = DEFAULT_IMAGE;
+                            }}
                           />
                           <div>
                             <h3 className="font-bold text-slate-900">{drink.name}</h3>
@@ -176,7 +201,7 @@ const StockBeverage = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center">
-                          <button 
+                          <button
                             onClick={() => handleEditStock(drink)}
                             className="btn btn-outline py-2 px-4 text-sm gap-2 border-blue-100 text-blue-600 hover:bg-blue-50"
                           >
@@ -207,17 +232,17 @@ const StockBeverage = () => {
       >
         <div className="space-y-6">
           <div className="flex items-center justify-center gap-8 py-4">
-            <button 
+            <button
               onClick={() => setNewStock(prev => Math.max(0, parseInt(prev || 0) - 1).toString())}
               className="text-rose-500 hover:scale-110 transition-transform"
             >
               <MinusCircle size={48} />
             </button>
-            <input 
+            <input
               type="number" value={newStock} onChange={(e) => setNewStock(e.target.value)}
               className="w-32 h-20 text-center text-4xl font-black bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-blue-500 outline-none"
             />
-            <button 
+            <button
               onClick={() => setNewStock(prev => (parseInt(prev || 0) + 1).toString())}
               className="text-emerald-500 hover:scale-110 transition-transform"
             >

@@ -3,12 +3,12 @@ import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Modal from '../../components/ui/Modal';
 import Toast from '../../components/ui/Toast';
-import { 
-  ShoppingBag, 
-  ChevronRight, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  ShoppingBag,
+  ChevronRight,
+  Plus,
+  Minus,
+  Trash2,
   Send,
   LayoutGrid,
   Search,
@@ -17,6 +17,20 @@ import {
   Coffee,
   CheckCircle2
 } from 'lucide-react';
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '/assets/img/default.jpg';
+
+  if (imagePath.startsWith('http')) {
+    const url = new URL(imagePath);
+    return url.pathname;
+  }
+
+  if (imagePath.startsWith('/assets/')) return imagePath;
+  if (imagePath.startsWith('assets/')) return `/${imagePath}`;
+
+  return `/assets/img/menus/${imagePath}`;
+};
 
 const MenuCustomer = () => {
   const { get, post, loading } = useApi();
@@ -28,22 +42,72 @@ const MenuCustomer = () => {
   const [toast, setToast] = useState(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [sessionToken, setSessionToken] = useState('');
 
-  useEffect(() => {
-    // Read table number from URL
+  const [sessionValid, setSessionValid] = useState(true);
+  const [sessionMessage, setSessionMessage] = useState('');
+
+  useEffect(() => {  
     const params = new URLSearchParams(window.location.search);
     const tableParam = params.get('table');
-    if (tableParam) {
-      setTableNumber(tableParam);
-    }
 
-    const fetchData = async () => {
+    const initPage = async () => {
+      let tableNo = '';
+      let token = '';
+
+      if (tableParam) {
+        try {
+          const decoded = atob(tableParam);
+
+          if (decoded.includes('|')) {
+            const parts = decoded.split('|');
+            tableNo = parts[0];
+            token = parts[1] || '';
+          } else {
+            tableNo = decoded;
+            token = '';
+          }
+
+          setTableNumber(tableNo);
+          setSessionToken(token);
+
+          console.log("DECODE TABLE:", {
+            raw: tableParam,
+            decoded,
+            tableNo,
+            token
+          });
+
+          const result = await get('/validate-table-session', {
+            table_number: tableNo,
+            security_key: token
+          });
+
+          if (!result.valid) {
+            setSessionValid(false);
+            setSessionMessage(result.message || 'QR Code นี้หมดอายุแล้ว');
+            return;
+          }
+
+          setSessionValid(true);
+
+        } catch (err) {
+          console.error("Decode / Validate session error:", err);
+          setSessionValid(false);
+          setSessionMessage('QR Code ไม่ถูกต้อง หรือหมดอายุแล้ว');
+          return;
+        }
+      }
+
       try {
-        const data = await get('/menus.php', { customer: true });
+        const data = await get('/menus', { customer: true });
         setMenus(data);
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
     };
-    fetchData();
+
+    initPage();
   }, [get]);
 
   const categories = useMemo(() => {
@@ -71,7 +135,14 @@ const MenuCustomer = () => {
       if (existing) {
         return prev.map(item => item.id === menu.id ? { ...item, qty: item.qty + 1 } : item);
       }
-      return [...prev, { id: menu.id, name: menu.name, price: menu.price, qty: 1, image: menu.image_path }];
+      return [...prev, {
+        id: menu.id,
+        name: menu.name,
+        price: menu.price,
+        qty: 1,
+        image: menu.image_path,
+        category_name: menu.category_name
+      }];
     });
     setToast({ message: `เพิ่ม ${menu.name} แล้ว`, type: 'success' });
   };
@@ -91,22 +162,116 @@ const MenuCustomer = () => {
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
+  const getOrderType = (categoryName) => {
+    const cat = String(categoryName || '').toLowerCase();
+
+    if (
+      cat.includes('เครื่องดื่ม') ||
+      cat.includes('drink') ||
+      cat.includes('น้ำ') ||
+      cat.includes('ชา') ||
+      cat.includes('กาแฟ')
+    ) {
+      return 'drink';
+    }
+
+    return 'food';
+  };
+
+  // const handleSubmitOrder = async () => {
+  //   if (cart.length === 0) return;
+  //   try {
+  //     await post('/orders', {
+  //       table_number: tableNumber,
+  //       items: cart
+  //     });
+  //     setOrderSuccess(true);
+  //     setCart([]);
+  //     setIsCartOpen(false);
+  //     setTimeout(() => setOrderSuccess(false), 5000);
+  //   } catch (err) {
+  //     setToast({ message: 'เกิดข้อผิดพลาดในการส่งออเดอร์', type: 'error' });
+  //   }
+  // };
+
   const handleSubmitOrder = async () => {
     if (cart.length === 0) return;
+
     try {
-      await post('/orders.php', {
+      // บันทึกลง main.py / database หลัก
+      await post('/orders', {
         table_number: tableNumber,
+        security_key: sessionToken,
         items: cart
       });
+
+      // ส่งออกไป pos_api.py ผ่าน nginx proxy
+      const payload = {
+        order_id: `ORD-${Date.now()}`,
+        session_id: String(sessionToken),
+        table_number: String(tableNumber),
+        created_at: new Date().toISOString(),
+        items: cart.map(item => ({
+          menu_id: Number(item.id),
+          name: String(item.name),
+          type: getOrderType(item.category_name),
+          quantity: Number(item.qty),
+          price: Number(item.price),
+          note: null
+        }))
+      };
+
+      console.log("SEND /api/order payload:", payload);
+
+      const res = await fetch("/api/order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.detail || "ส่งข้อมูลออเดอร์ไป API ไม่สำเร็จ");
+      }
+
+      console.log("RESPONSE /api/order:", result);
+
       setOrderSuccess(true);
       setCart([]);
       setIsCartOpen(false);
       setTimeout(() => setOrderSuccess(false), 5000);
+
     } catch (err) {
-      setToast({ message: 'เกิดข้อผิดพลาดในการส่งออเดอร์', type: 'error' });
+      console.error("SEND ORDER ERROR:", err);
+      setToast({
+        message: `เกิดข้อผิดพลาดในการส่งออเดอร์: ${err.message}`,
+        type: 'error'
+      });
     }
   };
 
+  if (!sessionValid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="bg-white rounded-[32px] shadow-xl p-8 max-w-md w-full text-center border border-slate-100">
+          <h1 className="text-2xl font-black text-rose-600 mb-4">
+            QR Code หมดอายุ
+          </h1>
+
+          <p className="text-slate-500 font-bold leading-relaxed">
+            {sessionMessage}
+          </p>
+
+          <p className="text-xs text-slate-400 mt-6">
+            กรุณาติดต่อพนักงานเพื่อเปิดโต๊ะใหม่
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-32">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -118,7 +283,7 @@ const MenuCustomer = () => {
             <h1 className="text-xl font-black text-slate-900 tracking-tighter">SATHANEE MALA</h1>
             <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Customer Menu</span>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Table</span>
@@ -138,15 +303,15 @@ const MenuCustomer = () => {
         <div className="max-w-7xl mx-auto space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
+            <input
               type="text" placeholder={`ค้นหาเมนูอาหารและเครื่องดื่ม...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full h-12 pl-12 pr-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium shadow-sm"
             />
           </div>
-          
+
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {categories.map(cat => (
-              <button 
+              <button
                 key={cat} onClick={() => setActiveCategory(cat)}
                 className={`shrink-0 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${activeCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
               >
@@ -165,14 +330,14 @@ const MenuCustomer = () => {
           </div>
           <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide px-1">
             {menus.filter(m => m.is_recommended && m.is_active).map(menu => (
-              <div 
-                key={`rec-${menu.id}`} 
+              <div
+                key={`rec-${menu.id}`}
                 onClick={() => addToCart(menu)}
                 className="shrink-0 w-64 bg-white rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50 border border-slate-100 cursor-pointer active:scale-95 transition-all"
               >
                 <div className="h-40 relative">
-                  <img 
-                    src={`/assets/img/menus/${menu.image_path}`} 
+                  <img
+                    src={getImageUrl(menu.image_path)}
                     className="w-full h-full object-cover"
                     onError={(e) => e.target.src = '/assets/img/default.jpg'}
                   />
@@ -203,9 +368,9 @@ const MenuCustomer = () => {
           ) : filteredMenus.map(menu => (
             <div key={menu.id} className="group relative bg-white rounded-[28px] overflow-hidden border border-slate-100 shadow-sm transition-all duration-500 hover:shadow-xl hover:-translate-y-2">
               <div className="relative aspect-square overflow-hidden bg-slate-50">
-                <img 
-                  src={`/assets/img/menus/${menu.image_path}`} 
-                  alt={menu.name} 
+                <img
+                  src={getImageUrl(menu.image_path)}
+                  alt={menu.name}
                   className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700"
                   onError={(e) => e.target.src = '/assets/img/default.jpg'}
                 />
@@ -215,7 +380,7 @@ const MenuCustomer = () => {
                     <span className="text-[9px] font-black uppercase tracking-tighter">Recommended</span>
                   </div>
                 )}
-                
+
                 {!menu.is_active && (
                   <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-20">
                     <div className="bg-rose-600 text-white px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl rotate-[-5deg] border-2 border-white/20">
@@ -225,7 +390,7 @@ const MenuCustomer = () => {
                 )}
 
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <button 
+                <button
                   onClick={() => addToCart(menu)}
                   disabled={!menu.is_active}
                   className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ${!menu.is_active ? 'scale-0' : 'bg-white text-blue-600 scale-0 group-hover:scale-100'}`}
@@ -233,7 +398,7 @@ const MenuCustomer = () => {
                   <Plus size={28} />
                 </button>
               </div>
-              
+
               <div className={`p-5 flex flex-col gap-3 ${!menu.is_active ? 'opacity-40 grayscale-[0.5]' : ''}`}>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{menu.category_name}</p>
@@ -241,7 +406,7 @@ const MenuCustomer = () => {
                 </div>
                 <div className="flex items-center justify-between mt-auto">
                   <span className="text-xl font-black text-slate-900 tracking-tighter">{Number(menu.price).toLocaleString()}.-</span>
-                  <button 
+                  <button
                     onClick={() => addToCart(menu)}
                     disabled={!menu.is_active}
                     className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform active:scale-90 ${!menu.is_active ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-blue-50 text-blue-600'}`}
@@ -267,7 +432,7 @@ const MenuCustomer = () => {
 
       {/* Floating Cart Bar */}
       <div className={`fixed bottom-0 left-0 right-0 z-50 p-6 transition-all duration-500 ${cartCount > 0 ? 'translate-y-0 opacity-100' : 'translate-y-32 opacity-0'}`}>
-        <button 
+        <button
           onClick={() => setIsCartOpen(true)}
           className="max-w-xl mx-auto w-full bg-slate-900 text-white h-[76px] rounded-[30px] flex items-center justify-between px-8 shadow-[0_20px_50px_rgba(15,23,42,0.4)] transition-all active:scale-95 group"
         >
@@ -303,7 +468,7 @@ const MenuCustomer = () => {
             <p className="text-slate-500 mt-4 font-bold leading-relaxed">
               ออเดอร์ของโต๊ะที่ {tableNumber} ถูกส่งแล้ว<br />กรุณารอสักครู่ ทางร้านกำลังปรุงอาหารให้ครับ
             </p>
-            <button 
+            <button
               onClick={() => setOrderSuccess(false)}
               className="mt-8 btn btn-primary w-full h-14"
             >
@@ -319,7 +484,7 @@ const MenuCustomer = () => {
         onClose={() => setIsCartOpen(false)}
         title="ตระกร้าสั่งอาหาร"
         footer={
-          <button 
+          <button
             onClick={handleSubmitOrder}
             className="w-full btn btn-primary h-14 text-lg"
           >
@@ -332,12 +497,12 @@ const MenuCustomer = () => {
             {cart.map(item => (
               <div key={item.id} className="flex items-center gap-4 py-4 border-b border-slate-50 last:border-0">
                 <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm shrink-0">
-                  <img src={`/assets/img/menus/${item.image}`} className="w-full h-full object-cover" onError={(e) => e.target.src = '/assets/img/default.jpg'} />
+                  <img src={getImageUrl(item.image)} className="w-full h-full object-cover" onError={(e) => e.target.src = '/assets/img/default.jpg'} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-slate-800 text-base leading-tight truncate">{item.name}</h4>
                   <p className="text-sm font-bold text-blue-600 mt-1">{item.price.toLocaleString()}.-</p>
-                  
+
                   <div className="flex items-center gap-3 mt-3 bg-slate-50 w-fit p-1 rounded-xl">
                     <button onClick={() => updateQty(item.id, -1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors">
                       {item.qty === 1 ? <Trash2 size={16} /> : <Minus size={16} />}

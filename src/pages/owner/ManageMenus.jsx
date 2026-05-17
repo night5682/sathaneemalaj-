@@ -1,21 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
+
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Toast from '../../components/ui/Toast';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Star, 
-  CheckCircle2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Star,
+  CheckCircle2,
   XCircle,
   Search,
   Filter
 } from 'lucide-react';
 
 const ManageMenus = () => {
-  const navigate = useNavigate();
+  const location = useLocation();
   const { get, del, post, loading } = useApi();
   const [menus, setMenus] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,7 +25,7 @@ const ManageMenus = () => {
 
   const fetchMenus = async () => {
     try {
-      const data = await get('/menus.php');
+      const data = await get('/menus');
       setMenus(data);
     } catch (err) {
       console.error(err);
@@ -31,12 +33,28 @@ const ManageMenus = () => {
   };
 
   useEffect(() => {
+    if (location.state?.action === "updated" && location.state?.updatedMenu) {
+      const updatedMenu = location.state.updatedMenu;
+
+      setMenus((prev) =>
+        prev.map((menu) =>
+          menu.id === updatedMenu.id || menu.menu_id === updatedMenu.menu_id
+            ? { ...menu, ...updatedMenu }
+            : menu
+        )
+      );
+
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     fetchMenus();
-  }, [get]);
+  }, []);
 
   const handleToggleStatus = async (id, type) => {
     try {
-      await post('/toggle_status.php', { id, type });
+      await post('/toggle_status', { id, type });
       setToast({ message: 'อัปเดตสถานะสำเร็จ', type: 'success' });
       fetchMenus();
     } catch (err) {
@@ -47,7 +65,7 @@ const ManageMenus = () => {
   const handleDelete = async (id, name) => {
     if (window.confirm(`ยืนยันการลบเมนู "${name}"?`)) {
       try {
-        await del(`/menus.php?id=${id}`);
+        await del(`/menus?id=${id}`);
         setToast({ message: 'ลบเมนูเรียบร้อยแล้ว', type: 'success' });
         fetchMenus();
       } catch (err) {
@@ -56,18 +74,40 @@ const ManageMenus = () => {
     }
   };
 
-  const filteredMenus = menus.filter(menu => 
+  const filteredMenus = menus.filter(menu =>
     menu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     menu.category_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const DEFAULT_IMAGE = "/assets/img/menus/default.jpg";
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return DEFAULT_IMAGE;
+
+    if (imagePath.startsWith("http://localhost:42091")) {
+      return imagePath.replace("http://localhost:42091", "");
+    }
+
+    if (imagePath.startsWith("http")) {
+      return imagePath;
+    }
+
+    if (imagePath.startsWith("dist/")) {
+      return `/${imagePath.replace("dist/", "")}`;
+    }
+
+    return imagePath.startsWith("/")
+      ? imagePath
+      : `/assets/img/menus/${imagePath}`;
+  };
+
   return (
     <div className="animate-slide-up space-y-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
 
@@ -76,7 +116,7 @@ const ManageMenus = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">จัดการเมนู</h1>
           <p className="text-slate-500 mt-2 font-medium">เพิ่ม แก้ไข และจัดการสถานะเมนูอาหารทั้งหมด</p>
         </div>
-        <Link 
+        <Link
           to="/add-menu"
           className="btn btn-primary h-12 px-8 text-lg shadow-xl shadow-blue-600/20"
         >
@@ -88,8 +128,8 @@ const ManageMenus = () => {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="ค้นหาชื่อเมนู หรือ หมวดหมู่..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -118,14 +158,28 @@ const ManageMenus = () => {
               </thead>
               <tbody className="bg-transparent">
                 {filteredMenus.map((menu) => (
-                  <tr key={menu.id} className="table-row group">
+                  <tr key={menu.id || menu.menu_id} className="table-row group">
                     <td className="px-6 py-4">
                       <div className="w-20 h-20 rounded-[20px] overflow-hidden bg-slate-100 border-2 border-white shadow-md">
-                        <img 
-                          src={`/assets/img/menus/${menu.image_path}`} 
+                        <img
+                          src={getImageUrl(menu.image_path)}
                           alt={menu.name}
                           className="w-full h-full object-cover transition-transform group-hover:scale-115 duration-700"
-                          onError={(e) => e.target.src = '/assets/img/default.jpg'}
+                          onError={(e) => {
+                            console.error("IMAGE LOAD ERROR:", {
+                              menu_id: menu.id,
+                              menu_name: menu.name,
+                              image_path: menu.image_path,
+                              final_src: e.currentTarget.src,
+                            });
+
+                            // กัน loop
+                            if (e.currentTarget.src.includes("default.jpg")) {
+                              return;
+                            }
+
+                            e.currentTarget.src = DEFAULT_IMAGE;
+                          }}
                         />
                       </div>
                     </td>
@@ -139,7 +193,7 @@ const ManageMenus = () => {
                             </span>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => handleToggleStatus(menu.id, 'recommend')}
                           className={`p-3 rounded-2xl transition-all ${menu.is_recommended ? 'text-amber-500 bg-amber-50 shadow-inner' : 'text-slate-200 hover:text-amber-400 hover:bg-amber-50/50'}`}
                         >
@@ -153,12 +207,12 @@ const ManageMenus = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button 
+                      <button
                         onClick={() => handleToggleStatus(menu.id, 'active')}
                         className={`
                           badge h-10 px-5 gap-2 transition-all active:scale-90
-                          ${menu.is_active 
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                          ${menu.is_active
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                             : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}
                         `}
                       >
@@ -168,13 +222,13 @@ const ManageMenus = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-3">
-                        <Link 
+                        <Link
                           to={`/edit-menu/${menu.id}`}
                           className="w-12 h-12 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-2xl transition-all duration-300 shadow-sm"
                         >
                           <Edit size={20} />
                         </Link>
-                        <button 
+                        <button
                           onClick={() => handleDelete(menu.id, menu.name)}
                           className="w-12 h-12 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-2xl transition-all duration-300 shadow-sm"
                         >

@@ -3,10 +3,10 @@ import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Modal from '../../components/ui/Modal';
 import Toast from '../../components/ui/Toast';
-import { 
-  UserPlus, 
-  Trash2, 
-  ShieldCheck, 
+import {
+  UserPlus,
+  Trash2,
+  ShieldCheck,
   User
 } from 'lucide-react';
 
@@ -15,11 +15,23 @@ const ManageEmployees = () => {
   const [employees, setEmployees] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [formData, setFormData] = useState({ first_name: '', last_name: '', nickname: '', username: '', password: '' });
+  const [formData, setFormData] = useState({ first_name: '', last_name: '', nickname: '', username: '', password: '', role: 'employee' });
+
+  const roleLabels = {
+    owner: 'เจ้าของร้าน',
+    cashier: 'แคชเชียร์',
+    employee: 'พนักงานทั่วไป'
+  };
+
+  const roleColors = {
+    owner: 'text-amber-500',
+    cashier: 'text-blue-500',
+    employee: 'text-emerald-500'
+  };
 
   const fetchEmployees = async () => {
     try {
-      const data = await get('/employees.php');
+      const data = await get('/employees');
       setEmployees(data);
     } catch (err) { console.error(err); }
   };
@@ -31,11 +43,11 @@ const ManageEmployees = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const result = await post('/employees.php', formData);
+      const result = await post('/employees', formData);
       if (result.success) {
         setToast({ message: `เพิ่มพนักงานแล้ว!`, type: 'success' });
         setIsModalOpen(false);
-        setFormData({ first_name: '', last_name: '', nickname: '', username: '', password: '' });
+        setFormData({ first_name: '', last_name: '', nickname: '', username: '', password: '', role: 'employee' });
         fetchEmployees();
       }
     } catch (err) {
@@ -46,7 +58,7 @@ const ManageEmployees = () => {
   const handleDelete = async (id, name) => {
     if (window.confirm(`ยืนยันการลบพนักงาน ${name}?`)) {
       try {
-        await del(`/employees.php?id=${id}`);
+        await del(`/employees?id=${id}`);
         setToast({ message: 'ลบพนักงานเรียบร้อยแล้ว', type: 'success' });
         fetchEmployees();
       } catch (err) {
@@ -64,7 +76,7 @@ const ManageEmployees = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">จัดการพนักงาน</h1>
           <p className="text-slate-500 mt-2 font-medium">เพิ่มพนักงานและจัดการชื่อผู้ใช้สำหรับเข้าใช้ระบบ</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsModalOpen(true)}
           className="btn btn-primary h-12 px-8 text-lg"
         >
@@ -82,7 +94,7 @@ const ManageEmployees = () => {
                 <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 transition-transform group-hover:scale-110">
                   <User size={28} />
                 </div>
-                <button 
+                <button
                   onClick={() => handleDelete(emp.id, emp.nickname || emp.first_name)}
                   className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                 >
@@ -96,8 +108,10 @@ const ManageEmployees = () => {
                     {emp.nickname ? `${emp.nickname} (${emp.first_name})` : emp.first_name}
                   </h3>
                   <div className="flex items-center gap-2 mt-2">
-                    <ShieldCheck size={14} className="text-emerald-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role: Staff</span>
+                    <ShieldCheck size={14} className={roleColors[emp.role] || 'text-slate-500'} />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Role: {roleLabels[emp.role] || emp.role}
+                    </span>
                   </div>
                 </div>
 
@@ -139,18 +153,18 @@ const ManageEmployees = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">ชื่อ (First Name)</label>
-              <input 
+              <input
                 type="text" required value={formData.first_name}
-                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="เช่น สมชาย"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">นามสกุล (Last Name)</label>
-              <input 
+              <input
                 type="text" required value={formData.last_name}
-                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="เช่น รักดี"
               />
@@ -158,27 +172,38 @@ const ManageEmployees = () => {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-700">ชื่อเล่น (Nickname)</label>
-            <input 
+            <input
               type="text" value={formData.nickname}
-              onChange={(e) => setFormData({...formData, nickname: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="เช่น ชาย"
             />
           </div>
           <div className="space-y-2">
+            <label className="text-sm font-bold text-slate-700">ตำแหน่ง (Role)</label>
+            <select
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700"
+            >
+              <option value="employee">พนักงานทั่วไป</option>
+              <option value="cashier">แคชเชียร์</option>
+            </select>
+          </div>
+          <div className="space-y-2">
             <label className="text-sm font-bold text-slate-700">ชื่อผู้ใช้ (Username)</label>
-            <input 
+            <input
               type="text" required value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="Username สำหรับล็อกอิน"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-700">รหัสผ่าน (Password)</label>
-            <input 
+            <input
               type="password" required value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="รหัสผ่าน"
             />

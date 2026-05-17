@@ -3,10 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Toast from '../../components/ui/Toast';
-import { 
-  ArrowLeft, 
-  Upload, 
-  Save, 
+import {
+  ArrowLeft,
+  Upload,
+  Save,
   Image as ImageIcon,
   ChevronRight
 } from 'lucide-react';
@@ -16,7 +16,7 @@ const AddMenu = () => {
   const { postMultipart, loading } = useApi();
   const [toast, setToast] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  
+
   const categories = ['เครื่องดื่ม', 'เมนูทอด', 'เมนูต้ม', 'เมนูยำ', 'เมนูทานเล่น', 'อาหารจานเดียว', 'หม่าล่า'];
 
   const [formData, setFormData] = useState({
@@ -49,7 +49,7 @@ const AddMenu = () => {
     });
 
     try {
-      await postMultipart('/menus.php', data);
+      await postMultipart('/menus', data);
       setToast({ message: 'เพิ่มเมนูใหม่เรียบร้อยแล้ว', type: 'success' });
       setTimeout(() => navigate('/manage-menus'), 1500);
     } catch (err) {
@@ -60,16 +60,16 @@ const AddMenu = () => {
   return (
     <div className="animate-slide-up max-w-4xl mx-auto space-y-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
 
       <header className="flex items-center gap-4">
-        <Link 
-          to="/manage-menus" 
+        <Link
+          to="/manage-menus"
           className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
         >
           <ArrowLeft size={24} />
@@ -115,7 +115,7 @@ const AddMenu = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">ชื่อเมนู <span className="text-rose-500">*</span></label>
-                <input 
+                <input
                   type="text" name="name" required value={formData.name} onChange={handleChange}
                   placeholder="เช่น ปีกไก่ทอดน้ำปลา"
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
@@ -123,7 +123,7 @@ const AddMenu = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">ราคา (บาท) <span className="text-rose-500">*</span></label>
-                <input 
+                <input
                   type="number" name="price" required value={formData.price} onChange={handleChange}
                   placeholder="เช่น 89"
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
@@ -133,7 +133,7 @@ const AddMenu = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">หมวดหมู่</label>
-              <select 
+              <select
                 name="main_category" value={formData.main_category} onChange={handleChange}
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium appearance-none"
               >
@@ -146,14 +146,14 @@ const AddMenu = () => {
             <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">จำนวนในคลังเริ่มต้น</label>
-                <input 
+                <input
                   type="number" name="stock_quantity" value={formData.stock_quantity} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">แจ้งเตือนสินค้าใกล้หมด (ต่ำกว่า)</label>
-                <input 
+                <input
                   type="number" name="low_stock_threshold" value={formData.low_stock_threshold} onChange={handleChange}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 />
@@ -162,7 +162,7 @@ const AddMenu = () => {
 
             <div className="pt-6 flex justify-end gap-4">
               <Link to="/manage-menus" className="btn btn-outline h-12 px-8">ยกเลิก</Link>
-              <button 
+              <button
                 type="submit" disabled={loading}
                 className="btn btn-primary h-12 px-10 shadow-lg shadow-blue-600/20"
               >

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 const Modal = ({ isOpen, onClose, title, children, footer }) => {
@@ -14,16 +15,16 @@ const Modal = ({ isOpen, onClose, title, children, footer }) => {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-fade">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-fade" 
         onClick={onClose}
       />
 
       {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale flex flex-col max-h-[90vh]">
+      <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale flex flex-col max-h-[90vh] z-10">
         {/* Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-xl font-bold text-slate-800">{title}</h3>
@@ -47,7 +48,8 @@ const Modal = ({ isOpen, onClose, title, children, footer }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

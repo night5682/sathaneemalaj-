@@ -13,7 +13,7 @@ class Login(Base):
     password = Column(String(255), nullable=False)
     owner_name = Column(String(100), nullable=False)
     nickname = Column(String(50), nullable=True)
-    role = Column(Enum('owner', 'employee'), nullable=False, default='employee')
+    role = Column(Enum('owner', 'cashier', 'employee'), nullable=False, default='employee')
 
 class TypeMenu(Base):
     __tablename__ = "type_menu"
@@ -39,23 +39,47 @@ class TableCategory(Base):
 
     category = relationship("TypeMenu", back_populates="menus")
 
+class TableActivityLog(Base):
+    __tablename__ = "table_activity_log"
+    
+    log_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    table_number = Column(String(50), nullable=False)
+    session_token = Column(String(100), nullable=False)
+    order_url = Column(Text, nullable=True)
+
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(100), nullable=True)
+    owner_name = Column(String(255), nullable=True)
+
+    action = Column(String(50), default="open_table")
+    created_at = Column(DateTime, server_default=func.now())
+    
 class TableSumOrder(Base):
     __tablename__ = "table_sum_order"
     sum_order_id = Column(Integer, primary_key=True, index=True)
-    table_number = Column(Integer, nullable=False) # In SQL it's int(11), previously was string
+    table_number = Column(String(50), nullable=False) # Changed from Integer to String to support custom names
     total_amount = Column(Numeric(10, 2), default=0.00)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Custom added columns
     status = Column(String(50), default='pending')
     note = Column(Text, nullable=True)
+    customer_name = Column(String(100), nullable=True)
+    session_token = Column(String(100), nullable=True)
+    reprint_count = Column(Integer, default=0)
     
     items = relationship("TableLogCus", back_populates="order")
+
+class SpecialTable(Base):
+    __tablename__ = "special_tables"
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String(50), unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class TableLogCus(Base):
     __tablename__ = "table_log_cus"
     log_cus_id = Column(Integer, primary_key=True, index=True)
-    table_number = Column(Integer, nullable=False)
+    table_number = Column(String(50), nullable=False)
     menu_id = Column(Integer, ForeignKey("table_category.menu_id"))
     quantity = Column(Integer, nullable=False)
     order_time = Column(DateTime(timezone=True), server_default=func.now())

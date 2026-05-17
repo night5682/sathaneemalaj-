@@ -22,6 +22,11 @@
   body {
     @apply font-outfit bg-slate-50 text-slate-900 antialiased overflow-x-hidden;
   }
+  
+  /* Force custom font override for mobile devices */
+  html, body, *, button, input, textarea, select {
+    font-family: 'Outfit', 'Sarabun', sans-serif !important;
+  }
 }
 
 @layer components {

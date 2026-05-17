@@ -4,10 +4,10 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Modal from '../../components/ui/Modal';
 import Toast from '../../components/ui/Toast';
 import { QRCodeSVG } from 'qrcode.react';
-import { 
-  Utensils, 
-  Receipt, 
-  Printer, 
+import {
+  Utensils,
+  Receipt,
+  Printer,
   ArrowRight,
   Info,
   QrCode,
@@ -25,8 +25,10 @@ import {
   Percent
 } from 'lucide-react';
 
+
 const ActiveBills = () => {
   const { get, post, del, loading } = useApi();
+  const user = JSON.parse(localStorage.getItem('user')) || {};
   const [bills, setBills] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [billItems, setBillItems] = useState([]);
@@ -44,10 +46,21 @@ const ActiveBills = () => {
   const [editPassword, setEditPassword] = useState('');
   const [isModified, setIsModified] = useState(false);
   const [isDiscounted, setIsDiscounted] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(0);
+
+  
+  const startPaymentFlow = () => {
+    setPaymentStep(1);
+  };
+
+  const finishPaymentFlow = async () => {
+    await handleUpdateStatus('ชำระแล้ว');
+    setPaymentStep(0);
+  };
 
   const fetchBills = async () => {
     try {
-      const data = await get('/active_bills.php');
+      const data = await get('/active_bills');
       setBills(data);
     } catch (err) { console.error(err); }
   };
@@ -68,8 +81,9 @@ const ActiveBills = () => {
     setEditUsername('');
     setEditPassword('');
     setIsDiscounted(false);
+    setPaymentStep(0);
     try {
-      const items = await get('/bill_items.php', { order_id: bill.id });
+      const items = await get('/bill_items', { order_id: bill.id });
       setBillItems(items);
     } catch (err) { console.error(err); }
     finally { setItemsLoading(false); }
@@ -77,7 +91,7 @@ const ActiveBills = () => {
 
   const handleUpdateStatus = async (status) => {
     if (!selectedBill) return;
-    
+
     if (status === 'ยกเลิก' && !showCancelPrompt) {
       setShowCancelPrompt(true);
       setShowDebtorPrompt(false);
@@ -104,12 +118,24 @@ const ActiveBills = () => {
     }
 
     try {
-      await post('/active_bills.php', { 
-        order_id: selectedBill.id, 
+      await post('/active_bills', {
+        order_id: selectedBill.id,
         status: finalStatus,
         note: note,
-        total_price: updatedTotal
+        total_price: updatedTotal,
+        username: user.first_name || user.username || 'Unknown'
       });
+
+      if (status === 'ชำระแล้ว') {
+        await post('/table-activity-log', {
+          table_number: String(selectedBill.table_number),
+          session_token: String(selectedBill.session_token || ''),
+          user_id: user.id || null,
+          username: user.username || '',
+          owner_name: user.owner_name || user.first_name || '',
+          action: 'checkout'
+        });
+      }
       setToast({ message: `อัปเดตสถานะเป็น "${finalStatus}" เรียบร้อย`, type: 'success' });
       setIsModalOpen(false);
       setShowCancelPrompt(false);
@@ -140,14 +166,14 @@ const ActiveBills = () => {
     }
 
     try {
-      await post('/edit_bill.php', {
+      await post('/edit_bill', {
         order_id: selectedBill.id,
         items: billItems.map(i => ({ id: i.id, quantity: i.quantity })),
         username: editUsername,
         password: editPassword,
         reason: editReason
       });
-      
+
       setToast({ message: 'แก้ไขบิลเรียบร้อยแล้ว', type: 'success' });
       setIsModalOpen(false);
       fetchBills();
@@ -168,68 +194,131 @@ const ActiveBills = () => {
     return Math.round(foodTotal * 0.1);
   };
 
-  const handlePrintBill = () => {
+  // const handlePrintBill = () => {
+  //   if (!selectedBill) return;
+  //   const printWindow = window.open('', '_blank');
+  //   const subtotal = calculateTotal();
+  //   const discountAmount = calculateDiscountAmount();
+  //   const total = subtotal - discountAmount;
+  //   const date = new Date().toLocaleString('th-TH');
+
+  //   const html = `
+  //     <html>
+  //       <head>
+  //         <title>Bill - Table ${selectedBill.table_number}</title>
+  //         <style>
+  //           @page { size: 80mm auto; margin: 0; }
+  //           body { 
+  //             width: 80mm; font-family: 'Courier New', Courier, monospace; 
+  //             padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4;
+  //           }
+  //           .center { text-align: center; }
+  //           .bold { font-weight: bold; }
+  //           .line { border-bottom: 1px dashed #000; margin: 3mm 0; }
+  //           .item-row { display: flex; justify-content: space-between; margin: 1mm 0; }
+  //           .footer { margin-top: 5mm; font-size: 10px; }
+  //         </style>
+  //       </head>
+  //       <body onload="window.print(); window.close();">
+  //         <div class="center bold" style="font-size: 16px;">SATHANEE MALA</div>
+  //         <div class="center">สถานีหม่าล่า</div>
+  //         <div class="line"></div>
+  //         <div>วันที่: ${date}</div>
+  //         <div class="bold">โต๊ะ: ${selectedBill.table_number}</div>
+  //         ${selectedBill.customer_name && selectedBill.table_number.startsWith('Ex') ? `<div class="bold">ชื่อลูกค้า: ${selectedBill.customer_name}</div>` : ''}
+  //         <div class="line"></div>
+  //         <div class="bold item-row">
+  //           <span>รายการ</span>
+  //           <span>ราคา</span>
+  //         </div>
+  //         ${billItems.map(item => `
+  //           <div class="item-row">
+  //             <span style="flex: 1;">${item.name} x ${item.quantity}</span>
+  //             <span>${(item.price_at_time * item.quantity).toLocaleString()}</span>
+  //           </div>
+  //         `).join('')}
+  //         <div class="line"></div>
+  //         ${isDiscounted ? `
+  //         <div class="item-row">
+  //           <span>ส่วนลด 10%</span>
+  //           <span>-${discountAmount.toLocaleString()}</span>
+  //         </div>
+  //         <div class="line"></div>
+  //         ` : ''}
+  //         <div class="bold item-row" style="font-size: 14px;">
+  //           <span>ยอดรวมทั้งสิ้น</span>
+  //           <span>${total.toLocaleString()}.-</span>
+  //         </div>
+  //         <div class="line"></div>
+  //         <div class="center footer">ขอบคุณที่ใช้บริการ<br>THANK YOU</div>
+  //       </body>
+  //     </html>
+  //   `;
+
+  //   printWindow.document.write(html);
+  //   printWindow.document.close();
+  // };
+
+  const handleSendInvoice = async () => {
     if (!selectedBill) return;
-    const printWindow = window.open('', '_blank');
-    const subtotal = calculateTotal();
-    const discountAmount = calculateDiscountAmount();
-    const total = subtotal - discountAmount;
-    const date = new Date().toLocaleString('th-TH');
 
-    const html = `
-      <html>
-        <head>
-          <title>Bill - Table ${selectedBill.table_number}</title>
-          <style>
-            @page { size: 80mm auto; margin: 0; }
-            body { 
-              width: 80mm; font-family: 'Courier New', Courier, monospace; 
-              padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4;
-            }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-bottom: 1px dashed #000; margin: 3mm 0; }
-            .item-row { display: flex; justify-content: space-between; margin: 1mm 0; }
-            .footer { margin-top: 5mm; font-size: 10px; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div class="center bold" style="font-size: 16px;">SATHANEE MALA</div>
-          <div class="center">สถานีหม่าล่า</div>
-          <div class="line"></div>
-          <div>วันที่: ${date}</div>
-          <div class="bold">โต๊ะ: ${selectedBill.table_number}</div>
-          <div class="line"></div>
-          <div class="bold item-row">
-            <span>รายการ</span>
-            <span>ราคา</span>
-          </div>
-          ${billItems.map(item => `
-            <div class="item-row">
-              <span style="flex: 1;">${item.name} x ${item.quantity}</span>
-              <span>${(item.price_at_time * item.quantity).toLocaleString()}</span>
-            </div>
-          `).join('')}
-          <div class="line"></div>
-          ${isDiscounted ? `
-          <div class="item-row">
-            <span>ส่วนลด 10%</span>
-            <span>-${discountAmount.toLocaleString()}</span>
-          </div>
-          <div class="line"></div>
-          ` : ''}
-          <div class="bold item-row" style="font-size: 14px;">
-            <span>ยอดรวมทั้งสิ้น</span>
-            <span>${total.toLocaleString()}.-</span>
-          </div>
-          <div class="line"></div>
-          <div class="center footer">ขอบคุณที่ใช้บริการ<br>THANK YOU</div>
-        </body>
-      </html>
-    `;
+    try {
+      const subtotal = calculateTotal();
+      const discountAmount = calculateDiscountAmount();
+      const vat = 0;
+      const serviceCharge = 0;
+      const grandTotal = subtotal - discountAmount + vat + serviceCharge;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+      const payload = {
+        invoice_id: `INV-${Date.now()}`,
+        session_id: String(selectedBill.session_token || selectedBill.id),
+        table_number: String(selectedBill.table_number),
+        payment_method: "cash",
+        subtotal: subtotal,
+        discount: discountAmount,
+        vat: vat,
+        service_charge: serviceCharge,
+        grand_total: grandTotal,
+        created_at: new Date().toISOString(),
+        items: billItems.map(item => ({
+          name: item.name,
+          quantity: Number(item.quantity),
+          price: Number(item.price_at_time),
+          subtotal: Number(item.price_at_time) * Number(item.quantity)
+        }))
+      };
+
+      console.log("SEND /api/invoice payload:", payload);
+
+      const res = await fetch("/api/invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.detail || "ส่งข้อมูลเช็คบิลไม่สำเร็จ");
+      }
+
+      console.log("RESPONSE /api/invoice:", result);
+
+      setToast({
+        message: `ส่งข้อมูลเช็คบิลโต๊ะ ${selectedBill.table_number} สำเร็จ`,
+        type: "success"
+      });
+
+    } catch (err) {
+      console.error("SEND INVOICE ERROR:", err);
+
+      setToast({
+        message: `ส่งข้อมูลเช็คบิลไม่สำเร็จ: ${err.message}`,
+        type: "error"
+      });
+    }
   };
 
   const generateQrUrl = (tableNum) => {
@@ -257,8 +346,8 @@ const ActiveBills = () => {
       ) : bills.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {bills.map((bill) => (
-            <div 
-              key={bill.id} 
+            <div
+              key={bill.id}
               className="card group border-2 border-transparent hover:border-blue-500 relative overflow-hidden p-4"
             >
               <div className="absolute top-3 right-3 w-3 h-3 bg-rose-500 rounded-full animate-ping" />
@@ -272,15 +361,15 @@ const ActiveBills = () => {
                   <h3 className="text-xl font-bold text-slate-900">โต๊ะ {bill.table_number}</h3>
                   <p className="text-2xl font-black text-blue-600 mt-1">{Number(bill.total_price).toLocaleString()}.-</p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-2 w-full mt-2">
-                  <button 
+                  <button
                     onClick={() => handleShowBill(bill)}
                     className="btn btn-outline py-2 px-0 text-xs font-black uppercase"
                   >
                     <Receipt size={14} /> บิล
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setSelectedBill(bill); setIsQrModalOpen(true); }}
                     className="btn btn-primary py-2 px-0 text-xs font-black uppercase"
                   >
@@ -308,7 +397,7 @@ const ActiveBills = () => {
             {showCancelPrompt && (
               <div className="bg-rose-50 p-4 rounded-2xl space-y-3 animate-fade-in border border-rose-100">
                 <p className="text-sm font-bold text-rose-600">กรุณาระบุเหตุผลที่ยกเลิกออเดอร์:</p>
-                <input 
+                <input
                   type="text" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
                   placeholder="เช่น ลูกค้าขอคืน, ทำผิดรายการ..."
                   className="w-full h-11 px-4 bg-white border border-rose-200 rounded-xl outline-none focus:ring-2 focus:ring-rose-500"
@@ -326,7 +415,7 @@ const ActiveBills = () => {
                   <Users size={18} />
                   <p className="text-sm font-bold">ค้างชำระ - กรุณาใส่ชื่อลูกค้า:</p>
                 </div>
-                <input 
+                <input
                   type="text" value={debtorName} onChange={(e) => setDebtorName(e.target.value)}
                   placeholder="ชื่อลูกค้าที่ค้างชำระ..."
                   className="w-full h-11 px-4 bg-white border border-orange-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold"
@@ -337,11 +426,87 @@ const ActiveBills = () => {
                 </div>
               </div>
             )}
-            
-            {!showCancelPrompt && !showDebtorPrompt && !showEditConfirm && (
+            {paymentStep > 0 && (
+              <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 space-y-4">
+                <div className="text-center">
+                  <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">
+                    ขั้นตอนชำระเงิน {paymentStep}/3
+                  </p>
+
+                  {paymentStep === 1 && (
+                    <p className="font-bold text-slate-700 mt-2">
+                      ตรวจสอบยอดเงินและรับเงินจากลูกค้า
+                    </p>
+                  )}
+
+                  {paymentStep === 2 && (
+                    <p className="font-bold text-slate-700 mt-2">
+                      สั่งพิมพ์สลิป / ใบเสร็จ
+                    </p>
+                  )}
+
+                  {paymentStep === 3 && (
+                    <p className="font-bold text-slate-700 mt-2">
+                      ยืนยันเสร็จสิ้นการชำระเงินและปิดโต๊ะ
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {paymentStep > 1 && (
+                    <button
+                      onClick={() => setPaymentStep(paymentStep - 1)}
+                      className="flex-1 btn bg-white text-slate-600"
+                    >
+                      ย้อนกลับ
+                    </button>
+                  )}
+
+                  {paymentStep === 1 && (
+                    <button
+                      onClick={() => setPaymentStep(2)}
+                      className="flex-1 btn btn-primary"
+                    >
+                      ถัดไป
+                    </button>
+                  )}
+
+                  {paymentStep === 2 && (
+                    <button
+                      onClick={async () => {
+                        await handleSendInvoice();
+                        setPaymentStep(3);
+                      }}
+                      className="flex-1 btn bg-blue-600 text-white"
+                    >
+                      <Printer size={18} /> พิมพ์สลิป
+                    </button>
+                  )}
+
+                  {paymentStep === 3 && (
+                    <button
+                      onClick={finishPaymentFlow}
+                      className="flex-1 btn bg-emerald-600 text-white"
+                    >
+                      <CheckCircle size={18} /> เสร็จสิ้นการชำระเงิน
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setPaymentStep(0)}
+                    className="flex-1 btn bg-slate-100 text-slate-600"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+
+
+            {paymentStep === 0 && !showCancelPrompt && !showDebtorPrompt && !showEditConfirm && (
               <div className="flex flex-wrap gap-2 justify-center w-full">
                 {isModified ? (
-                  <button 
+                  <button
                     onClick={() => setShowEditConfirm(true)}
                     className="btn btn-primary w-full h-14 bg-blue-600 hover:bg-blue-700"
                   >
@@ -349,36 +514,34 @@ const ActiveBills = () => {
                   </button>
                 ) : (
                   <>
-                    <button 
+                    <button
                       onClick={() => handleUpdateStatus('ยกเลิก')}
                       className="btn bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600 border-none"
                     >
-                      <XCircle size={18} /> ยกเลิก
+                      <XCircle size={18} /> ยกเลิกบิล
                     </button>
-                    <button 
-                      onClick={() => handleUpdateStatus('ค้างชำระ')}
-                      className="btn bg-orange-100 text-orange-600 hover:bg-orange-200 border-none"
-                    >
-                      <Clock size={18} /> ค้างชำระ
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateStatus('ชำระแล้ว')}
-                      className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-                    >
-                      <CheckCircle size={18} /> ชำระแล้ว
-                    </button>
-                    <button 
-                      onClick={() => setIsDiscounted(!isDiscounted)}
-                      className={`btn w-full mt-2 border-none ${isDiscounted ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-slate-100 text-slate-600 hover:bg-purple-50 hover:text-purple-600'}`}
-                    >
-                      <Percent size={18} /> {isDiscounted ? 'ยกเลิกส่วนลด 10%' : 'ลด 10%'}
-                    </button>
-                    <button 
-                      onClick={handlePrintBill}
-                      className="btn bg-blue-50 text-blue-600 hover:bg-blue-100 border-none w-full mt-2"
-                    >
-                      <Printer size={18} /> ปริ้นใบแจ้งยอด (Bill)
-                    </button>
+                    {user.role !== 'employee' && (
+                      <>
+                        <button
+                          onClick={() => handleUpdateStatus('ค้างชำระ')}
+                          className="btn bg-orange-100 text-orange-600 hover:bg-orange-200 border-none"
+                        >
+                          <Clock size={18} /> ค้างชำระ
+                        </button>
+                        <button
+                          onClick={startPaymentFlow}
+                          className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                        >
+                          <CheckCircle size={18} /> ชำระเงิน
+                        </button>
+                        <button
+                          onClick={() => setIsDiscounted(!isDiscounted)}
+                          className={`btn w-full mt-2 border-none ${isDiscounted ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-slate-100 text-slate-600 hover:bg-purple-50 hover:text-purple-600'}`}
+                        >
+                          <Percent size={18} /> {isDiscounted ? 'ยกเลิกส่วนลด 10%' : 'ลด 10%'}
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -395,12 +558,12 @@ const ActiveBills = () => {
                     <p className="text-[10px] font-bold opacity-70">กรุณากรอก Username/Password และเหตุผลเพื่อบันทึก</p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="relative">
                       <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" size={18} />
-                      <input 
+                      <input
                         type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value)}
                         placeholder="Username"
                         className="w-full h-12 pl-12 pr-4 bg-white border border-blue-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm"
@@ -408,7 +571,7 @@ const ActiveBills = () => {
                     </div>
                     <div className="relative">
                       <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" size={18} />
-                      <input 
+                      <input
                         type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)}
                         placeholder="Password"
                         className="w-full h-12 pl-12 pr-4 bg-white border border-blue-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm"
@@ -417,7 +580,7 @@ const ActiveBills = () => {
                   </div>
                   <div className="relative">
                     <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" size={18} />
-                    <input 
+                    <input
                       type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
                       placeholder="เหตุผลในการคืนของ/แก้ไข..."
                       className="w-full h-12 pl-12 pr-4 bg-white border border-blue-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm"
@@ -453,14 +616,14 @@ const ActiveBills = () => {
                     </div>
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-3 bg-slate-100 p-1 rounded-xl">
-                        <button 
+                        <button
                           onClick={() => handleUpdateQty(item.id, -1)}
                           className="w-8 h-8 bg-white text-slate-400 hover:text-rose-500 rounded-lg flex items-center justify-center transition-all shadow-sm"
                         >
                           {item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
                         </button>
                         <span className="w-6 text-center font-black text-slate-900 text-sm">{item.quantity}</span>
-                        <button 
+                        <button
                           onClick={() => handleUpdateQty(item.id, 1)}
                           className="w-8 h-8 bg-white text-blue-600 rounded-lg flex items-center justify-center transition-all shadow-sm"
                         >
@@ -504,8 +667,8 @@ const ActiveBills = () => {
       >
         <div className="flex flex-col items-center gap-8 py-8">
           <div className="p-8 bg-white rounded-[40px] shadow-2xl border border-slate-100">
-            <QRCodeSVG 
-              value={generateQrUrl(selectedBill?.table_number)} 
+            <QRCodeSVG
+              value={generateQrUrl(selectedBill?.table_number)}
               size={200}
               level="H"
               includeMargin={true}
@@ -515,7 +678,7 @@ const ActiveBills = () => {
             <p className="text-lg font-black text-slate-900 tracking-tight">สแกนเพื่อสั่งอาหาร</p>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Table No. {selectedBill?.table_number}</p>
           </div>
-          <button 
+          <button
             onClick={() => window.print()}
             className="btn btn-primary w-full h-14"
           >
