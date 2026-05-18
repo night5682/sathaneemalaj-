@@ -56,7 +56,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_IMAGE_PATH = "/assets/img/menus/default.jpg"
 
 app.mount(
-    "/assets",
+    "/api/assets",
     StaticFiles(directory=str(ASSETS_DIR)),
     name="assets"
 )
@@ -103,6 +103,14 @@ def save_menu_image(menu_id: int, menu_image: UploadFile) -> str:
 
     image_filename = f"menu_{menu_id}{ext}"
     save_path = UPLOAD_DIR / image_filename
+
+    # Delete existing images with the same menu_id to avoid dangling files
+    # if the new image has a different extension, or just to be safe.
+    for existing_file in UPLOAD_DIR.glob(f"menu_{menu_id}.*"):
+        try:
+            existing_file.unlink()
+        except OSError:
+            pass
 
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(menu_image.file, buffer)
@@ -201,7 +209,7 @@ async def create_menu(
     db.refresh(new_menu)
     return {"success": True, "id": new_menu.menu_id}
 
-@app.put("/api/menus")
+@app.put("/api/menus/{id}")
 async def update_menu(
     id: int,
     name: Optional[str] = Form(None),

@@ -55,11 +55,13 @@ const ManageEmployees = () => {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (window.confirm(`ยืนยันการลบพนักงาน ${name}?`)) {
+  const handleDelete = async (emp) => {
+    const displayName = `${emp.first_name} ${emp.last_name} (${emp.nickname || '-'})`;
+    const confirmMessage = `ยืนยันการลบข้อมูลพนักงาน\n\nชื่อ: ${emp.first_name}\nนามสกุล: ${emp.last_name}\nชื่อเล่น: ${emp.nickname || '-'}\n\nต้องการลบพนักงานคนนี้ใช่หรือไม่?`;
+    if (window.confirm(confirmMessage)) {
       try {
-        await del(`/employees?id=${id}`);
-        setToast({ message: 'ลบพนักงานเรียบร้อยแล้ว', type: 'success' });
+        await del(`/employees?id=${emp.id}`);
+        setToast({ message: `ลบพนักงาน ${displayName} เรียบร้อยแล้ว`, type: 'success' });
         fetchEmployees();
       } catch (err) {
         setToast({ message: 'เกิดข้อผิดพลาดในการลบ', type: 'error' });
@@ -95,7 +97,7 @@ const ManageEmployees = () => {
                   <User size={28} />
                 </div>
                 <button
-                  onClick={() => handleDelete(emp.id, emp.nickname || emp.first_name)}
+                  onClick={() => handleDelete(emp)}
                   className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                 >
                   <Trash2 size={20} />

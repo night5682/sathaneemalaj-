@@ -30,9 +30,15 @@ const getImageUrl = (imagePath) => {
     return `/${imagePath.replace("dist/", "")}`;
   }
 
-  return imagePath.startsWith("/")
+  let path = imagePath.startsWith("/")
     ? imagePath
     : `/assets/img/menus/${imagePath}`;
+    
+  if (path.startsWith("/assets/")) {
+    path = `/api${path}`;
+  }
+  
+  return path;
 };
 
 const StockBeverage = () => {

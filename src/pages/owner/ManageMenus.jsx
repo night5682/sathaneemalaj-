@@ -26,27 +26,32 @@ const ManageMenus = () => {
   const fetchMenus = async () => {
     try {
       const data = await get('/menus');
-      setMenus(data);
+      
+      // If we just updated a menu, apply its changes (e.g. cache buster for images)
+      if (location.state?.action === "updated" && location.state?.updatedMenu) {
+        const updatedMenu = location.state.updatedMenu;
+        const updatedData = data.map((menu) => {
+          if (menu.id === updatedMenu.id || menu.menu_id === updatedMenu.menu_id) {
+            return { 
+              ...menu, 
+              ...updatedMenu,
+              // Append timestamp to bust image cache if image was updated
+              image_path: updatedMenu.image_updated 
+                ? `${menu.image_path}?t=${updatedMenu.timestamp}` 
+                : menu.image_path
+            };
+          }
+          return menu;
+        });
+        setMenus(updatedData);
+        window.history.replaceState({}, document.title);
+      } else {
+        setMenus(data);
+      }
     } catch (err) {
       console.error(err);
     }
   };
-
-  useEffect(() => {
-    if (location.state?.action === "updated" && location.state?.updatedMenu) {
-      const updatedMenu = location.state.updatedMenu;
-
-      setMenus((prev) =>
-        prev.map((menu) =>
-          menu.id === updatedMenu.id || menu.menu_id === updatedMenu.menu_id
-            ? { ...menu, ...updatedMenu }
-            : menu
-        )
-      );
-
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
 
   useEffect(() => {
     fetchMenus();
@@ -96,9 +101,15 @@ const ManageMenus = () => {
       return `/${imagePath.replace("dist/", "")}`;
     }
 
-    return imagePath.startsWith("/")
+    let path = imagePath.startsWith("/")
       ? imagePath
       : `/assets/img/menus/${imagePath}`;
+      
+    if (path.startsWith("/assets/")) {
+      path = `/api${path}`;
+    }
+    
+    return path;
   };
 
   return (

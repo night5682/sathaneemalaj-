@@ -17,13 +17,13 @@ const OwnerSidebar = ({ isOpen, toggleSidebar }) => {
   const user = JSON.parse(localStorage.getItem('user')) || {};
   
   const navItems = [
-    { name: 'ภาพรวมระบบ', path: '/', icon: <LayoutDashboard size={20} />, roles: ['owner', 'employee'] },
-    { name: 'จัดการโต๊ะ', path: '/manage-tables', icon: <Grid size={20} />, roles: ['owner', 'employee'] },
-    { name: 'โต๊ะที่กำลังใช้งาน', path: '/active-bills', icon: <UtensilsCrossed size={20} />, roles: ['owner', 'employee'] },
+    { name: 'ภาพรวมระบบ', path: '/', icon: <LayoutDashboard size={20} />, roles: ['owner'] },
+    { name: 'จัดการโต๊ะ', path: '/manage-tables', icon: <Grid size={20} />, roles: ['owner', 'employee', 'cashier'] },
+    { name: 'โต๊ะที่กำลังใช้งาน', path: '/active-bills', icon: <UtensilsCrossed size={20} />, roles: ['owner', 'employee', 'cashier'] },
     { name: 'จัดการเมนูร้าน', path: '/manage-menus', icon: <MenuIcon size={20} />, roles: ['owner'] },
-    { name: 'ประวัติออเดอร์', path: '/order-history', icon: <History size={20} />, roles: ['owner', 'employee'] },
-    { name: 'คลังสินค้าสต็อก', path: '/stock-beverage', icon: <Beer size={20} />, roles: ['owner', 'employee'] },
-    { name: 'ประวัติสต็อก', path: '/stock-history', icon: <History size={20} />, roles: ['owner', 'employee'] },
+    { name: 'ประวัติออเดอร์', path: '/order-history', icon: <History size={20} />, roles: ['owner', 'employee', 'cashier'] },
+    { name: 'คลังสินค้าสต็อก', path: '/stock-beverage', icon: <Beer size={20} />, roles: ['owner', 'employee', 'cashier'] },
+    { name: 'ประวัติสต็อก', path: '/stock-history', icon: <History size={20} />, roles: ['owner', 'employee', 'cashier'] },
     { name: 'จัดการพนักงาน', path: '/manage-employees', icon: <Users size={20} />, roles: ['owner'] },
   ];
 

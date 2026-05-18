@@ -71,6 +71,25 @@ export const useApi = () => {
     }
   }, []);
 
+  const putMultipart = useCallback(async (endpoint, formData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api${endpoint}`, {
+        method: 'PUT',
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Upload failed');
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const put = useCallback((endpoint, data) => {
     return request(endpoint, {
       method: 'PUT',
@@ -82,5 +101,5 @@ export const useApi = () => {
     return request(endpoint, { method: 'DELETE' });
   }, [request]);
 
-  return { loading, error, get, post, postMultipart, put, del };
+  return { loading, error, get, post, postMultipart, put, putMultipart, del };
 };

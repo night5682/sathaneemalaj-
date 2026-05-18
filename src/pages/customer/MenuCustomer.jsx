@@ -26,10 +26,12 @@ const getImageUrl = (imagePath) => {
     return url.pathname;
   }
 
-  if (imagePath.startsWith('/assets/')) return imagePath;
+  if (imagePath.startsWith('/assets/')) return `/api${imagePath}`;
   if (imagePath.startsWith('assets/')) return `/${imagePath}`;
 
-  return `/assets/img/menus/${imagePath}`;
+  let path = `/assets/img/menus/${imagePath}`;
+  if (path.startsWith('/assets/')) return `/api${path}`;
+  return path;
 };
 
 const MenuCustomer = () => {

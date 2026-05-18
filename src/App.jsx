@@ -23,6 +23,11 @@ import TableManagement from './pages/owner/TableManagement';
 // Customer Page
 import MenuCustomer from './pages/customer/MenuCustomer';
 
+const getDefaultRoute = (role) => {
+  if (role === 'owner') return '/';
+  return '/manage-tables';
+};
+
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const user = JSON.parse(localStorage.getItem('user'));
   
@@ -31,7 +36,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getDefaultRoute(user.role)} replace />;
   }
 
   return children;
@@ -79,7 +84,7 @@ function App() {
         
         <main className="main-content lg:pt-[94px]">
           <Routes>
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute allowedRoles={['owner']}><Dashboard /></ProtectedRoute>} />
             <Route path="/manage-tables" element={<ProtectedRoute><TableManagement /></ProtectedRoute>} />
             <Route path="/active-bills" element={<ProtectedRoute><ActiveBills /></ProtectedRoute>} />
             <Route path="/manage-menus" element={<ProtectedRoute allowedRoles={['owner']}><ManageMenus /></ProtectedRoute>} />

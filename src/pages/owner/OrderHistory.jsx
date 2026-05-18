@@ -15,6 +15,7 @@ import Toast from '../../components/ui/Toast';
 
 const OrderHistory = () => {
   const { get, post, loading } = useApi();
+  const user = JSON.parse(localStorage.getItem('user')) || {};
   const [data, setData] = useState({ orders: [], total: 0 });
   const [toast, setToast] = useState(null);
   const [dateStart, setDateStart] = useState(new Date().toISOString().split('T')[0]);
@@ -284,7 +285,7 @@ const OrderHistory = () => {
                           </span>
                         )}
 
-                        {order.status === 'ค้างชำระ' && (
+                        {order.status === 'ค้างชำระ' && user.role !== 'employee' && (
                           <button
                             onClick={() => handleConfirmPayment(order.id)}
                             className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-tighter hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
@@ -297,14 +298,20 @@ const OrderHistory = () => {
 
                     <td className="px-6 py-4 text-center">
                       {(order.status === 'ชำระแล้ว' || order.status === 'ลด 10%' || order.status === 'ค้างชำระ') ? (
-                        <button
-                          onClick={() => handleReprintSlip(order)}
-                          disabled={printingOrderId === order.id}
-                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Printer size={14} />
-                          {printingOrderId === order.id ? 'กำลังพิมพ์...' : 'พิมพ์สลิปย้อนหลัง'}
-                        </button>
+                        user.role !== 'employee' ? (
+                          <button
+                            onClick={() => handleReprintSlip(order)}
+                            disabled={printingOrderId === order.id}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Printer size={14} />
+                            {printingOrderId === order.id ? 'กำลังพิมพ์...' : 'พิมพ์สลิปย้อนหลัง'}
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-300">
+                            ไม่มีสิทธิ์พิมพ์สลิป
+                          </span>
+                        )
                       ) : (
                         <span className="text-[10px] font-bold text-slate-300">
                           -

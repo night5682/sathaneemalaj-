@@ -48,9 +48,15 @@ const EditMenu = () => {
       return `/${imagePath.replace("dist/", "")}`;
     }
 
-    return imagePath.startsWith("/")
+    let path = imagePath.startsWith("/")
       ? imagePath
       : `/assets/img/menus/${imagePath}`;
+
+    if (path.startsWith("/assets/")) {
+      path = `/api${path}`;
+    }
+
+    return path;
   };
 
   useEffect(() => {
@@ -109,7 +115,17 @@ const EditMenu = () => {
       setTimeout(() => {
         navigate("/manage-menus", {
           state: {
-            updatedMenu,
+            updatedMenu: {
+              id: parseInt(id),
+              menu_id: parseInt(id),
+              name: formData.name,
+              price: formData.price,
+              category_name: formData.main_category,
+              stock_quantity: formData.stock_quantity,
+              low_stock_threshold: formData.low_stock_threshold,
+              image_updated: !!formData.menu_image,
+              timestamp: Date.now()
+            },
             action: "updated",
           },
         });
