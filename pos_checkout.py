@@ -143,7 +143,7 @@ def print_check_bill(
     y += 22
 
     if discount > 0:
-        d.text((MARGIN_X, y), "ส่วนลด", font=font(CHECK_NORMAL_FONT_SIZE), fill=0)
+        d.text((MARGIN_X, y), "ส่วนลด 10% ค่าอาหาร", font=font(CHECK_NORMAL_FONT_SIZE), fill=0)
         right_text(d, f"-{discount:,.2f}", PAPER_WIDTH_PX - MARGIN_X, y, font(CHECK_NORMAL_FONT_SIZE))
         y += 22
 
@@ -261,7 +261,7 @@ def print_invoice(
     y += 25
 
     if discount > 0:
-        d.text((MARGIN_X, y), "ส่วนลด", font=font(BILL_NORMAL_FONT_SIZE), fill=0)
+        d.text((MARGIN_X, y), "ส่วนลด 10% ค่าอาหาร", font=font(BILL_NORMAL_FONT_SIZE), fill=0)
         right_text(d, f"-{discount:,.2f}", PAPER_WIDTH_PX - MARGIN_X, y, font(16))
         y += 25
 

@@ -188,76 +188,82 @@ const ActiveBills = () => {
 
   const calculateDiscountAmount = () => {
     if (!isDiscounted) return 0;
+
     const foodTotal = billItems.reduce((sum, item) => {
-      return item.category === 'อาหาร' ? sum + (item.price_at_time * item.quantity) : sum;
+      const category = String(item.category || '').trim();
+
+      // ลดเฉพาะที่ไม่ใช่เครื่องดื่ม แอลกอฮอล์ หรือมิ๊กเซอร์
+      if (!['เครื่องดื่ม', 'แอลกอฮอล์', 'มิ๊กเซอร์'].includes(category)) {
+        return sum + (item.price_at_time * item.quantity);
+      }
+
+      return sum;
     }, 0);
-    return Math.round(foodTotal * 0.1);
+
+    return Number((foodTotal * 0.1).toFixed(2));
   };
 
-  // const handlePrintBill = () => {
-  //   if (!selectedBill) return;
-  //   const printWindow = window.open('', '_blank');
-  //   const subtotal = calculateTotal();
-  //   const discountAmount = calculateDiscountAmount();
-  //   const total = subtotal - discountAmount;
-  //   const date = new Date().toLocaleString('th-TH');
+  const calculateFoodTotal = () => {
+    return billItems.reduce((sum, item) => {
+      const category = String(item.category || '').trim();
 
-  //   const html = `
-  //     <html>
-  //       <head>
-  //         <title>Bill - Table ${selectedBill.table_number}</title>
-  //         <style>
-  //           @page { size: 80mm auto; margin: 0; }
-  //           body { 
-  //             width: 80mm; font-family: 'Courier New', Courier, monospace; 
-  //             padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4;
-  //           }
-  //           .center { text-align: center; }
-  //           .bold { font-weight: bold; }
-  //           .line { border-bottom: 1px dashed #000; margin: 3mm 0; }
-  //           .item-row { display: flex; justify-content: space-between; margin: 1mm 0; }
-  //           .footer { margin-top: 5mm; font-size: 10px; }
-  //         </style>
-  //       </head>
-  //       <body onload="window.print(); window.close();">
-  //         <div class="center bold" style="font-size: 16px;">SATHANEE MALA</div>
-  //         <div class="center">สถานีหม่าล่า</div>
-  //         <div class="line"></div>
-  //         <div>วันที่: ${date}</div>
-  //         <div class="bold">โต๊ะ: ${selectedBill.table_number}</div>
-  //         ${selectedBill.customer_name && selectedBill.table_number.startsWith('Ex') ? `<div class="bold">ชื่อลูกค้า: ${selectedBill.customer_name}</div>` : ''}
-  //         <div class="line"></div>
-  //         <div class="bold item-row">
-  //           <span>รายการ</span>
-  //           <span>ราคา</span>
-  //         </div>
-  //         ${billItems.map(item => `
-  //           <div class="item-row">
-  //             <span style="flex: 1;">${item.name} x ${item.quantity}</span>
-  //             <span>${(item.price_at_time * item.quantity).toLocaleString()}</span>
-  //           </div>
-  //         `).join('')}
-  //         <div class="line"></div>
-  //         ${isDiscounted ? `
-  //         <div class="item-row">
-  //           <span>ส่วนลด 10%</span>
-  //           <span>-${discountAmount.toLocaleString()}</span>
-  //         </div>
-  //         <div class="line"></div>
-  //         ` : ''}
-  //         <div class="bold item-row" style="font-size: 14px;">
-  //           <span>ยอดรวมทั้งสิ้น</span>
-  //           <span>${total.toLocaleString()}.-</span>
-  //         </div>
-  //         <div class="line"></div>
-  //         <div class="center footer">ขอบคุณที่ใช้บริการ<br>THANK YOU</div>
-  //       </body>
-  //     </html>
-  //   `;
+      if (!['เครื่องดื่ม', 'แอลกอฮอล์', 'มิ๊กเซอร์'].includes(category)) {
+        return sum + (Number(item.price_at_time) * Number(item.quantity));
+      }
 
-  //   printWindow.document.write(html);
-  //   printWindow.document.close();
-  // };
+      return sum;
+    }, 0);
+  };
+
+  const calculateNetTotal = () => {
+    return calculateTotal() - calculateDiscountAmount();
+  };
+
+  const handlePrintQrSlip = async () => {
+    if (!selectedBill) return;
+
+    try {
+      const orderUrl = generateQrUrl(selectedBill.table_number);
+
+      const payload = {
+        session_id: String(selectedBill.session_token || selectedBill.id),
+        table_number: String(selectedBill.table_number),
+        order_url: orderUrl,
+        created_at: new Date().toISOString()
+      };
+
+      console.log("SEND /api/table/open payload:", payload);
+
+      const res = await fetch("/api/table/open", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.detail || "พิมพ์ QR ไม่สำเร็จ");
+      }
+
+      setToast({
+        message: `พิมพ์ QR โต๊ะ ${selectedBill.table_number} สำเร็จ`,
+        type: "success"
+      });
+
+      setIsQrModalOpen(false);
+
+    } catch (err) {
+      console.error("PRINT QR ERROR:", err);
+
+      setToast({
+        message: `พิมพ์ QR ไม่สำเร็จ: ${err.message}`,
+        type: "error"
+      });
+    }
+  };
 
   const handleSendInvoice = async () => {
     if (!selectedBill) return;
@@ -265,6 +271,22 @@ const ActiveBills = () => {
     try {
       const subtotal = calculateTotal();
       const discountAmount = calculateDiscountAmount();
+      const calculateFoodTotal = () => {
+        return billItems.reduce((sum, item) => {
+          const category = String(item.category || '').trim();
+
+          // อะไรก็ตามที่ไม่ใช่เครื่องดื่ม แอลกอฮอล์ หรือมิ๊กเซอร์ = ค่าอาหาร
+          if (!['เครื่องดื่ม', 'แอลกอฮอล์', 'มิ๊กเซอร์'].includes(category)) {
+            return sum + (Number(item.price_at_time) * Number(item.quantity));
+          }
+
+          return sum;
+        }, 0);
+      };
+
+      const calculateNetTotal = () => {
+        return calculateTotal() - calculateDiscountAmount();
+      };
       const vat = 0;
       const serviceCharge = 0;
       const grandTotal = subtotal - discountAmount + vat + serviceCharge;
@@ -274,12 +296,16 @@ const ActiveBills = () => {
         session_id: String(selectedBill.session_token || selectedBill.id),
         table_number: String(selectedBill.table_number),
         payment_method: "cash",
-        subtotal: subtotal,
-        discount: discountAmount,
-        vat: vat,
-        service_charge: serviceCharge,
-        grand_total: grandTotal,
+
+        subtotal: Number(subtotal),
+        discount: Number(discountAmount), // สำคัญ
+        vat: Number(vat),
+        service_charge: Number(serviceCharge),
+        grand_total: Number(grandTotal), // ยอดหลังหักส่วนลด
+
+        cash_received: Number(grandTotal),
         created_at: new Date().toISOString(),
+
         items: billItems.map(item => ({
           name: item.name,
           quantity: Number(item.quantity),
@@ -304,8 +330,6 @@ const ActiveBills = () => {
         throw new Error(result.detail || "ส่งข้อมูลเช็คบิลไม่สำเร็จ");
       }
 
-      console.log("RESPONSE /api/invoice:", result);
-
       setToast({
         message: `ส่งข้อมูลเช็คบิลโต๊ะ ${selectedBill.table_number} สำเร็จ`,
         type: "success"
@@ -313,7 +337,6 @@ const ActiveBills = () => {
 
     } catch (err) {
       console.error("SEND INVOICE ERROR:", err);
-
       setToast({
         message: `ส่งข้อมูลเช็คบิลไม่สำเร็จ: ${err.message}`,
         type: "error"
@@ -638,15 +661,29 @@ const ActiveBills = () => {
             )}
           </div>
           <div className="flex justify-between items-center px-4">
-            <span className="text-lg font-bold text-slate-500 uppercase tracking-widest">ยอดรวมสุทธิ</span>
+            <span className="text-lg font-bold text-slate-500 uppercase tracking-widest">
+              ยอดรวมสุทธิ
+            </span>
+
             <div className="text-right">
               {isDiscounted && (
-                <div className="text-sm font-bold text-purple-600 line-through opacity-70">
-                  {calculateTotal().toLocaleString()} ฿
-                </div>
+                <>
+                  <div className="text-sm font-bold text-slate-400 line-through">
+                    ยอดก่อนลด {calculateTotal().toLocaleString()} ฿
+                  </div>
+
+                  <div className="text-sm font-bold text-purple-600">
+                    ลด 10% เฉพาะค่าอาหาร -{calculateDiscountAmount().toLocaleString()} ฿
+                  </div>
+
+                  <div className="text-xs font-bold text-slate-400">
+                    ค่าอาหารที่นำไปคำนวณ {calculateFoodTotal().toLocaleString()} ฿
+                  </div>
+                </>
               )}
+
               <span className={`text-3xl font-black tracking-tighter transition-colors ${isModified ? 'text-blue-600' : 'text-slate-900'}`}>
-                {(calculateTotal() - calculateDiscountAmount()).toLocaleString()} <span className="text-xl opacity-30">฿</span>
+                {calculateNetTotal().toLocaleString()} <span className="text-xl opacity-30">฿</span>
               </span>
             </div>
           </div>
@@ -678,8 +715,8 @@ const ActiveBills = () => {
             <p className="text-lg font-black text-slate-900 tracking-tight">สแกนเพื่อสั่งอาหาร</p>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Table No. {selectedBill?.table_number}</p>
           </div>
-          <button
-            onClick={() => window.print()}
+          <button 
+            onClick={handlePrintQrSlip}
             className="btn btn-primary w-full h-14"
           >
             <Printer size={20} /> พิมพ์ QR Code

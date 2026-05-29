@@ -20,7 +20,7 @@ import secrets
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Sathani Mala POS API")
+app = FastAPI(title="SATHANEEMHALA POS API")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -349,6 +349,36 @@ async def validate_table_session(
         "session_token": order.session_token
     }
 
+@app.get("/api/customer/order-items")
+async def get_customer_order_items(
+    table_number: str,
+    security_key: str = "",
+    db: Session = Depends(get_db)
+):
+    final_states = ['ชำระแล้ว', 'ลด 10%', 'ยกเลิก', 'ค้างชำระ', 'completed', 'cancelled']
+    order = db.query(models.TableSumOrder).filter(
+        models.TableSumOrder.table_number == table_number,
+        models.TableSumOrder.status.notin_(final_states)
+    ).order_by(models.TableSumOrder.created_at.desc()).first()
+
+    if not order:
+        return {"success": False, "items": []}
+
+    if order.session_token and security_key and security_key != order.session_token:
+        return {"success": False, "items": []}
+
+    items = db.query(models.TableLogCus).filter(models.TableLogCus.sum_order_id == order.sum_order_id).all()
+    result = []
+    for item in items:
+        result.append({
+            "name": item.menu.menu_name,
+            "quantity": item.quantity,
+            "price_at_time": float(item.price_at_time),
+            "status": item.status or 'pending',
+            "order_time": item.order_time.isoformat() if item.order_time else None
+        })
+    return {"success": True, "items": result, "status": order.status}
+
 @app.post("/api/table-activity-log")
 async def create_table_activity_log(
     data: dict,
@@ -468,7 +498,7 @@ async def update_bill_status(data: schemas.StatusUpdate, db: Session = Depends(g
     final_states = ['ชำระแล้ว', 'ค้างชำระ', 'ลด 10%']
     if data.status in final_states and order.status not in final_states:
         for item in order.items:
-            if item.menu.category.type_name == 'เครื่องดื่ม':
+            if item.menu.category.type_name in ['เครื่องดื่ม', 'แอลกอฮอล์', 'มิ๊กเซอร์']:
                 item.menu.stock_quantity -= item.quantity
                 log = models.TableLogEmp(
                     menu_id=item.menu_id,
@@ -479,7 +509,7 @@ async def update_bill_status(data: schemas.StatusUpdate, db: Session = Depends(g
                 db.add(log)
     elif data.status == 'ยกเลิก' and order.status != 'ยกเลิก':
         for item in order.items:
-            if item.menu.category.type_name == 'เครื่องดื่ม':
+            if item.menu.category.type_name in ['เครื่องดื่ม', 'แอลกอฮอล์', 'มิ๊กเซอร์']:
                 # Just log the cancellation in stock history without changing quantity
                 log = models.TableLogEmp(
                     menu_id=item.menu_id,

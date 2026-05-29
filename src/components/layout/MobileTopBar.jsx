@@ -14,7 +14,7 @@ const MobileTopBar = ({ toggleSidebar }) => {
     '/add-menu': 'เพิ่มเมนูใหม่',
   };
 
-  const currentTitle = titles[location.pathname] || 'SATHANI MALA';
+  const currentTitle = titles[location.pathname] || 'SATHANEEMHALA';
 
   return (
     <header className="lg:hidden fixed top-0 left-0 right-0 h-[70px] bg-white/80 backdrop-blur-md border-b border-slate-100 z-40 px-6 flex items-center justify-between">

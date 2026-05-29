@@ -74,7 +74,7 @@ const Dashboard = () => {
     <div className="animate-slide-up space-y-8">
       <header>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">ภาพรวมระบบ</h1>
-        <p className="text-slate-500 mt-2 font-medium">ยินดีต้อนรับกลับสู่ SATHANEE MALA Management System</p>
+        <p className="text-slate-500 mt-2 font-medium">ยินดีต้อนรับกลับสู่ SATHANEEMHALA Management System</p>
       </header>
 
       {/* Stats Grid */}

@@ -27,7 +27,7 @@ PAPER_WIDTH_PX   = 384
 
 # True  = preview เท่านั้น (ไม่พิมพ์จริง)
 # False = พิมพ์จริงผ่าน win32print
-PREVIEW_MODE            = True
+PREVIEW_MODE            = False
 ADD_PREVIEW_INFO_HEADER = True
 PREVIEW_OUTPUT_DIR      = "preview_output"
 

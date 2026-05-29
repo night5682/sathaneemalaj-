@@ -51,7 +51,7 @@ const OwnerSidebar = ({ isOpen, toggleSidebar }) => {
         {/* Brand Logo */}
         <div className="p-8 pb-10 border-b border-slate-800/50 flex justify-between items-center relative">
           <div className="relative z-10">
-            <h1 className="text-2xl font-black tracking-tighter text-white leading-tight uppercase">SATHANEE MALA</h1>
+            <h1 className="text-2xl font-black tracking-tighter text-white leading-tight uppercase">SATHANEEMHALA</h1>
             <p className="text-[10px] font-black tracking-[0.3em] text-blue-500 mt-1 uppercase">Management</p>
           </div>
           <button onClick={toggleSidebar} className="lg:hidden p-2 hover:bg-slate-800 rounded-xl transition-colors">

@@ -42,7 +42,7 @@ const Login = () => {
 
       <div className="w-full max-w-md animate-slide-up">
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">SATHANEE MALA</h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">SATHANEEMHALA</h1>
           <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2">Management System Login</p>
         </div>
 

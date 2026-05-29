@@ -158,7 +158,7 @@ const TableManagement = () => {
   //         </style>
   //       </head>
   //       <body>
-  //         <div class="header text-uppercase">SATHANEE MALA</div>
+  //         <div class="header text-uppercase">SATHANEEMHALA</div>
   //         <div class="sub-header uppercase tracking-widest">Scan to Order</div>
   //         <div class="table-box">TABLE ${selectedTable}</div>
   //         <div class="qr-container" id="qr-code"></div>

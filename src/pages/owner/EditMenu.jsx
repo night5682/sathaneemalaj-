@@ -20,7 +20,20 @@ const EditMenu = () => {
   const [toast, setToast] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  const categories = ['เครื่องดื่ม', 'เมนูทอด', 'เมนูต้ม', 'เมนูยำ', 'เมนูทานเล่น', 'อาหารจานเดียว', 'หม่าล่า'];
+  const categories = [
+    'เครื่องดื่ม',
+    'แอลกอฮอล์',
+    'มิ๊กเซอร์',
+    'เมนูผัด',
+    'เมนูกับแกล้ม',
+    'เมนูส้มตำ',
+    'เมนูจุ่ม',
+    'เมนูทอด',
+    'เมนูต้ม',
+    'เมนูยำ',
+    'เมนูทานเล่น',
+    'อาหารจานเดียว'
+  ];
 
   const [formData, setFormData] = useState({
     name: '',
