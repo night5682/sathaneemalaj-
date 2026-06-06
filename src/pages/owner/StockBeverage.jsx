@@ -62,18 +62,21 @@ const StockBeverage = () => {
 
   const handleEditStock = (drink) => {
     setSelectedDrink(drink);
-    setNewStock(drink.stock_quantity.toString());
+    setNewStock('0');
     setIsModalOpen(true);
   };
 
   const handleUpdateStock = async () => {
     if (!selectedDrink || newStock === '') return;
     const user = JSON.parse(localStorage.getItem('user'));
+    const adjustment = parseInt(newStock) || 0;
+    const finalStock = Math.max(0, selectedDrink.stock_quantity + adjustment);
+    
     try {
       await put(`/stock?id=${selectedDrink.id}`, {
-        stock_quantity: parseInt(newStock),
+        stock_quantity: finalStock,
         user_id: user?.id || 0,
-        note: 'Manual adjustment via Management UI'
+        note: `ปรับสต็อกด้วยตนเอง: ${adjustment >= 0 ? '+' : ''}${adjustment} ชิ้น (จาก ${selectedDrink.stock_quantity} เป็น ${finalStock})`
       });
       setToast({ message: `อัปเดตสต็อก ${selectedDrink.name} เรียบร้อยแล้ว`, type: 'success' });
       setIsModalOpen(false);
@@ -239,13 +242,15 @@ const StockBeverage = () => {
         <div className="space-y-6">
           <div className="flex items-center justify-center gap-8 py-4">
             <button
-              onClick={() => setNewStock(prev => Math.max(0, parseInt(prev || 0) - 1).toString())}
+              onClick={() => setNewStock(prev => (parseInt(prev || 0) - 1).toString())}
               className="text-rose-500 hover:scale-110 transition-transform"
             >
               <MinusCircle size={48} />
             </button>
             <input
-              type="number" value={newStock} onChange={(e) => setNewStock(e.target.value)}
+              type="number"
+              value={newStock}
+              onChange={(e) => setNewStock(e.target.value)}
               className="w-32 h-20 text-center text-4xl font-black bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-blue-500 outline-none"
             />
             <button
@@ -255,7 +260,33 @@ const StockBeverage = () => {
               <PlusCircle size={48} />
             </button>
           </div>
-          <p className="text-center text-slate-400 font-bold uppercase text-xs tracking-[0.2em]">ระบุจำนวนสินค้าที่ต้องการปรับเปลี่ยน</p>
+
+          {selectedDrink && (
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex justify-around items-center text-center">
+              <div>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">จำนวนเดิม</p>
+                <p className="text-xl font-extrabold text-slate-700 mt-1">
+                  {selectedDrink.stock_quantity} ชิ้น
+                </p>
+              </div>
+              <div className="text-slate-300 font-light text-2xl">→</div>
+              <div>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">การปรับปรุง</p>
+                <p className={`text-xl font-extrabold mt-1 ${parseInt(newStock || 0) > 0 ? 'text-emerald-600' : parseInt(newStock || 0) < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                  {parseInt(newStock || 0) > 0 ? `+${parseInt(newStock || 0)}` : parseInt(newStock || 0)} ชิ้น
+                </p>
+              </div>
+              <div className="text-slate-300 font-light text-2xl">→</div>
+              <div>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">จำนวนใหม่</p>
+                <p className="text-xl font-black text-blue-600 mt-1">
+                  {Math.max(0, selectedDrink.stock_quantity + (parseInt(newStock || 0)))} ชิ้น
+                </p>
+              </div>
+            </div>
+          )}
+
+          <p className="text-center text-slate-400 font-bold uppercase text-xs tracking-[0.2em]">ระบุจำนวนสินค้าที่ต้องการปรับเปลี่ยน (บวก/ลบ)</p>
         </div>
       </Modal>
     </div>
